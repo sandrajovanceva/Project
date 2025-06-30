@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-backend
+  namespace: food-delivery
+  labels:
+    app: food-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: food-backend
+  template:
+    metadata:
+      labels:
+        app: food-backend
+    spec:
+      containers:
+        - name: food-backend
+          image: sandra040/food-delivery-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: datasource-url
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: datasource-username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: datasource-password
+          volumeMounts:
+            - mountPath: "/app/logs"
+              name: log-volume
+      volumes:
+        - name: log-volume
+          emptyDir: {}

@@ -95,7 +95,8 @@ public class JwtSecurityWebConfig {
                                         "/api/orders/pending/confirm",
                                         "/api/orders/pending/cancel"
                                 )
-                                .hasRole("CUSTOMER")
+//                                .hasRole("CUSTOMER")
+                                .permitAll()
                                 .requestMatchers(
                                         "/api/dishes/add",
                                         "/api/dishes/{id}/edit",
@@ -104,9 +105,11 @@ public class JwtSecurityWebConfig {
                                         "/api/restaurants/{id}/edit",
                                         "/api/restaurants/{id}/delete"
                                 )
-                                .hasRole("OWNER")
+//                                .hasRole("OWNER")
+                                .permitAll()
                                 .anyRequest()
-                                .hasRole("ADMIN")
+                                .permitAll()
+//                                .hasRole("ADMIN")
                 )
                 .sessionManagement(sessionManagementConfigurer ->
                         sessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
