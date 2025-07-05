@@ -32,23 +32,24 @@ public class JwtSecurityWebConfig {
         this.jwtFilter = jwtFilter;
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration corsConfiguration = new CorsConfiguration();
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration corsConfiguration = new CorsConfiguration();
+    
+    corsConfiguration.setAllowedOriginPatterns(List.of(
+            "http://localhost:[*]",
+            "https://food-frontend-pzl5.onrender.com"
+    ));
+    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+    corsConfiguration.setAllowedHeaders(List.of("*"));
+    corsConfiguration.setExposedHeaders(List.of("Authorization", "Content-Type"));
+    corsConfiguration.setAllowCredentials(true);
 
-        corsConfiguration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "https://food-frontend-pzl5.onrender.com"
-        ));
-        corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        corsConfiguration.setAllowedHeaders(List.of("*"));
-        corsConfiguration.setExposedHeaders(List.of("Authorization", "Content-Type"));
-        corsConfiguration.setAllowCredentials(true);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", corsConfiguration);
+    return source;
+}
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", corsConfiguration);
-        return source;
-    }
 
     @Bean
     public RoleHierarchy roleHierarchy() {
