@@ -35,9 +35,17 @@ public class JwtSecurityWebConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
-        corsConfiguration.setAllowedOrigins(List.of("http://localhost:3000"));
-        corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
+
+        
+        corsConfiguration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "https://food-frontend-pzl5.onrender.com"
+        ));
+
+        corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowedHeaders(List.of("*"));
+        corsConfiguration.setAllowCredentials(true); 
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfiguration);
         return source;
@@ -58,64 +66,46 @@ public class JwtSecurityWebConfig {
         return expressionHandler;
     }
 
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(corsCustomizer ->
-                        corsCustomizer.configurationSource(corsConfigurationSource())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/h2/**",
+                                "/api/user/register",
+                                "/api/user/login"
+                        ).permitAll()
+                        .requestMatchers("/api/user/me").authenticated()
+                        .requestMatchers(
+                                "/api/restaurants",
+                                "/api/restaurants/{id}",
+                                "/api/dishes",
+                                "/api/dishes/{id}",
+                                "/api/dishes/{id}/details",
+                                "/api/dishes/{id}/add-to-order",
+                                "/api/dishes/{id}/remove-from-order",
+                                "/api/orders/pending",
+                                "/api/orders/pending/confirm",
+                                "/api/orders/pending/cancel"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/api/dishes/add",
+                                "/api/dishes/{id}/edit",
+                                "/api/dishes/{id}/delete",
+                                "/api/restaurants/add",
+                                "/api/restaurants/{id}/edit",
+                                "/api/restaurants/{id}/delete"
+                        ).permitAll()
+                        .anyRequest().permitAll()
                 )
-                .headers(headers -> headers
-                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-                )
-                .authorizeHttpRequests(authorizeHttpRequestsCustomizer ->
-                        authorizeHttpRequestsCustomizer
-                                .requestMatchers(
-                                        "/swagger-ui/**",
-                                        "/v3/api-docs/**",
-                                        "/h2/**",
-                                        "/api/user/register",
-                                        "/api/user/login"
-                                )
-                                .permitAll()
-                                .requestMatchers(
-                                        "/api/user/me"
-                                )
-                                .authenticated()
-                                .requestMatchers(
-                                        "/api/restaurants",
-                                        "/api/restaurants/{id}",
-                                        "/api/dishes",
-                                        "/api/dishes/{id}",
-                                        "/api/dishes/{id}/details",
-                                        "/api/dishes/{id}/add-to-order",
-                                        "/api/dishes/{id}/remove-from-order",
-                                        "/api/orders/pending",
-                                        "/api/orders/pending/confirm",
-                                        "/api/orders/pending/cancel"
-                                )
-//                                .hasRole("CUSTOMER")
-                                .permitAll()
-                                .requestMatchers(
-                                        "/api/dishes/add",
-                                        "/api/dishes/{id}/edit",
-                                        "/api/dishes/{id}/delete",
-                                        "/api/restaurants/add",
-                                        "/api/restaurants/{id}/edit",
-                                        "/api/restaurants/{id}/delete"
-                                )
-//                                .hasRole("OWNER")
-                                .permitAll()
-                                .anyRequest()
-                                .permitAll()
-//                                .hasRole("ADMIN")
-                )
-                .sessionManagement(sessionManagementConfigurer ->
-                        sessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
-
 }
