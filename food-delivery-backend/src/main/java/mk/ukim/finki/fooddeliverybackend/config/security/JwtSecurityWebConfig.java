@@ -15,9 +15,11 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.List;
 
@@ -32,24 +34,38 @@ public class JwtSecurityWebConfig {
         this.jwtFilter = jwtFilter;
     }
 
-@Bean
-public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration corsConfiguration = new CorsConfiguration();
-    
-    corsConfiguration.setAllowedOriginPatterns(List.of(
-            "http://localhost:[*]",
-            "https://food-frontend-pzl5.onrender.com"
-    ));
-    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-    corsConfiguration.setAllowedHeaders(List.of("*"));
-    corsConfiguration.setExposedHeaders(List.of("Authorization", "Content-Type"));
-    corsConfiguration.setAllowCredentials(true);
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "https://food-frontend-pzl5.onrender.com"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowCredentials(true);  // Ова е важно за cookie/session/token
 
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", corsConfiguration);
-    return source;
-}
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 
+    // Дополнителен WebMvcConfigurer за CORS fallback (во некои случаи неопходно)
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/**")
+                        .allowedOrigins("http://localhost:3000", "https://food-frontend-pzl5.onrender.com")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                        .allowedHeaders("*")
+                        .exposedHeaders("Authorization", "Content-Type")
+                        .allowCredentials(true);
+            }
+        };
+    }
 
     @Bean
     public RoleHierarchy roleHierarchy() {
@@ -61,50 +77,32 @@ public CorsConfigurationSource corsConfigurationSource() {
 
     @Bean
     static MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
-        DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
-        expressionHandler.setRoleHierarchy(roleHierarchy);
-        return expressionHandler;
+        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+        return handler;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/h2/**",
-                                "/api/user/register",
-                                "/api/user/login"
-                        ).permitAll()
-                        .requestMatchers("/api/user/me").authenticated()
-                        .requestMatchers(
-                                "/api/restaurants",
-                                "/api/restaurants/{id}",
-                                "/api/dishes",
-                                "/api/dishes/{id}",
-                                "/api/dishes/{id}/details",
-                                "/api/dishes/{id}/add-to-order",
-                                "/api/dishes/{id}/remove-from-order",
-                                "/api/orders/pending",
-                                "/api/orders/pending/confirm",
-                                "/api/orders/pending/cancel"
-                        ).permitAll()
-                        .requestMatchers(
-                                "/api/dishes/add",
-                                "/api/dishes/{id}/edit",
-                                "/api/dishes/{id}/delete",
-                                "/api/restaurants/add",
-                                "/api/restaurants/{id}/edit",
-                                "/api/restaurants/{id}/delete"
-                        ).permitAll()
-                        .anyRequest().permitAll()
-                )
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                        "/swagger-ui/**", "/v3/api-docs/**", "/h2/**",
+                        "/api/user/register", "/api/user/login"
+                ).permitAll()
+                .requestMatchers("/api/user/me").authenticated()
+                .requestMatchers(
+                        "/api/restaurants", "/api/restaurants/**",
+                        "/api/dishes", "/api/dishes/**",
+                        "/api/orders/**"
+                ).permitAll()
+                .anyRequest().permitAll()
+            )
+            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
