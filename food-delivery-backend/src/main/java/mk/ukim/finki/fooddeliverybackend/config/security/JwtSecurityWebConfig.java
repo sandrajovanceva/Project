@@ -15,11 +15,9 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
@@ -34,38 +32,25 @@ public class JwtSecurityWebConfig {
         this.jwtFilter = jwtFilter;
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "https://food-frontend-pzl5.onrender.com"
-        ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization", "Content-Type"));
-        config.setAllowCredentials(true);  // Ова е важно за cookie/session/token
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
+    corsConfiguration.addAllowedOriginPattern("https://food-frontend-pzl5.onrender.com");
+    corsConfiguration.addAllowedOriginPattern("http://localhost:3000");
 
-    // Дополнителен WebMvcConfigurer за CORS fallback (во некои случаи неопходно)
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:3000", "https://food-frontend-pzl5.onrender.com")
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                        .allowedHeaders("*")
-                        .exposedHeaders("Authorization", "Content-Type")
-                        .allowCredentials(true);
-            }
-        };
-    }
+    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+    corsConfiguration.setAllowedHeaders(List.of("*"));
+
+    corsConfiguration.setExposedHeaders(List.of("Authorization", "Content-Type"));
+
+    corsConfiguration.setAllowCredentials(true);
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", corsConfiguration);
+    return source;
+}
 
     @Bean
     public RoleHierarchy roleHierarchy() {
@@ -77,33 +62,69 @@ public class JwtSecurityWebConfig {
 
     @Bean
     static MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
-        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
-        handler.setRoleHierarchy(roleHierarchy);
-        return handler;
+        DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
+        expressionHandler.setRoleHierarchy(roleHierarchy);
+        return expressionHandler;
     }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                        "/swagger-ui/**", "/v3/api-docs/**", "/h2/**",
-                        "/api/user/register", "/api/user/login"
-                ).permitAll()
-                .requestMatchers("/api/user/me").authenticated()
-                .requestMatchers(
-                        "/api/restaurants", "/api/restaurants/**",
-                        "/api/dishes", "/api/dishes/**",
-                        "/api/orders/**"
-                ).permitAll()
-                .anyRequest().permitAll()
-            )
-            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(corsCustomizer ->
+                        corsCustomizer.configurationSource(corsConfigurationSource())
+                )
+                .headers(headers -> headers
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+                )
+                .authorizeHttpRequests(authorizeHttpRequestsCustomizer ->
+                        authorizeHttpRequestsCustomizer
+                                .requestMatchers(
+                                        "/swagger-ui/**",
+                                        "/v3/api-docs/**",
+                                        "/h2/**",
+                                        "/api/user/register",
+                                        "/api/user/login"
+                                )
+                                .permitAll()
+                                .requestMatchers(
+                                        "/api/user/me"
+                                )
+                                .authenticated()
+                                .requestMatchers(
+                                        "/api/restaurants",
+                                        "/api/restaurants/{id}",
+                                        "/api/dishes",
+                                        "/api/dishes/{id}",
+                                        "/api/dishes/{id}/details",
+                                        "/api/dishes/{id}/add-to-order",
+                                        "/api/dishes/{id}/remove-from-order",
+                                        "/api/orders/pending",
+                                        "/api/orders/pending/confirm",
+                                        "/api/orders/pending/cancel"
+                                )
+//                                .hasRole("CUSTOMER")
+                                .permitAll()
+                                .requestMatchers(
+                                        "/api/dishes/add",
+                                        "/api/dishes/{id}/edit",
+                                        "/api/dishes/{id}/delete",
+                                        "/api/restaurants/add",
+                                        "/api/restaurants/{id}/edit",
+                                        "/api/restaurants/{id}/delete"
+                                )
+//                                .hasRole("OWNER")
+                                .permitAll()
+                                .anyRequest()
+                                .permitAll()
+//                                .hasRole("ADMIN")
+                )
+                .sessionManagement(sessionManagementConfigurer ->
+                        sessionManagementConfigurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
+
 }
